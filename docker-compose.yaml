@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  api:
+    container_name: egoblur_api
+    build: 
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    command: ./start.sh
+    environment:
+      - WORKERS_PER_CORE=1
+      - WEB_CONCURRENCY=2
+      - MAX_WORKERS=4
+      - HOST=0.0.0.0
+      - PORT=8000
+      - LOG_LEVEL=info
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    volumes:
+      - ./api:/app
+      - ./logs/api:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    depends_on:
+      - processor
+      - rabbitmq
+      - redis
+    networks:
+      - egoblur_network
+
+  processor:
+    container_name: egoblur_processor
+    build: 
+      context: ./processor
+      dockerfile: Dockerfile
+    command: ./start.sh
+    # command: celery -A tasks worker -P eventlet --loglevel=info -c 3
+    volumes:
+      - ./processor:/app
+      - ./logs/celery:/app/logs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - redis
+    networks:
+      - egoblur_network
+
+  rabbitmq:
+    container_name: egoblur_rabbitmq
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - egoblur_network
+
+  redis:
+    container_name: egoblur_redis
+    image: redis:6
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - egoblur_network
+
+networks:
+  egoblur_network:
+    name: egoblur_network
