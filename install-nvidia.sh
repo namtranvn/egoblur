@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Exit on error
+set -e
+
 # # Install required packages
 # sudo dnf update -y
 # sudo dnf install -y curl docker
@@ -12,58 +15,38 @@
 # sudo systemctl start docker
 # sudo systemctl enable docker
 
-# Install EPEL repository
-sudo dnf install -y epel-release
+echo "Installing required packages..."
+sudo dnf update -y
+sudo dnf install -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r)
 
-# Add NVIDIA repository for Amazon Linux
+echo "Installing NVIDIA driver..."
 sudo dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
-
-# Install NVIDIA drivers and CUDA
 sudo dnf clean all
-sudo dnf -y module install nvidia-driver:latest-dkms
-sudo dnf -y install cuda-toolkit
+sudo dnf module install -y nvidia-driver:latest-dkms
 
-# Install NVIDIA Container Toolkit
-distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-curl -s -L https://nvidia.github.io/libnvidia-container/stable/$distribution/libnvidia-container.repo | sudo tee /etc/yum.repos.d/nvidia-container-toolkit.repo
+echo "Installing CUDA toolkit..."
+sudo dnf install -y cuda-toolkit
 
-sudo dnf clean all
-sudo dnf -y install nvidia-container-toolkit
+echo "Installing Docker..."
+sudo dnf install -y docker
 
-# Configure Docker to use NVIDIA runtime
+echo "Installing NVIDIA Container Toolkit..."
+sudo dnf config-manager --add-repo https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo
+sudo dnf install -y nvidia-container-toolkit
+
+echo "Configuring Docker daemon..."
 sudo nvidia-ctk runtime configure --runtime=docker
 
-# Restart Docker daemon
+echo "Starting Docker service..."
+sudo systemctl start docker
+sudo systemctl enable docker
+
+echo "Restarting Docker daemon..."
 sudo systemctl restart docker
 
-# Verify NVIDIA driver installation
+echo "Verifying NVIDIA driver installation..."
 nvidia-smi
 
-
-# # Add NVIDIA repository
-# sudo dnf config-manager --add-repo https://nvidia.github.io/nvidia-docker/amzn2/nvidia-docker.repo
-
-# # Update package list
-# sudo dnf clean all
-# sudo dnf makecache
-
-# # Install NVIDIA driver and CUDA toolkit
-# sudo dnf -y install nvidia-driver nvidia-driver-cuda
-
-# # Install NVIDIA Container Toolkit
-# sudo dnf -y install nvidia-container-toolkit nvidia-docker2
-
-# # Configure Docker daemon
-# sudo nvidia-ctk runtime configure --runtime=docker
-
-# # Restart Docker daemon
-# sudo systemctl restart docker
-
-# # Verify NVIDIA driver installation
-# nvidia-smi
-
-# # Install CUDA toolkit if needed for development
-# sudo dnf -y install cuda-toolkit
-
-# # Restart Docker daemon
-# sudo systemctl restart docker
+echo "Installation complete! System will reboot in 10 seconds..."
+sleep 10
+sudo reboot
