@@ -1,52 +1,72 @@
 #!/bin/bash
-
-# Exit on error
 set -e
 
-# Install required packages
-sudo dnf update -y
-sudo dnf install -y curl docker
+echo "Uninstalling any old versions..."
+sudo apt-get remove -y docker docker-engine docker.io containerd runc || true
 
-# Install Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
+echo "Updating package list..."
+sudo apt-get update
 
-# Start and enable Docker service
-sudo systemctl start docker
-sudo systemctl enable docker
+echo "Installing prerequisites..."
+sudo apt-get install -y \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release
 
-echo "Installing required packages..."
-sudo dnf update -y
-sudo dnf install -y gcc kernel-devel-$(uname -r) kernel-headers-$(uname -r)
+echo "Adding Docker's official GPG key..."
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 
-echo "Installing NVIDIA driver..."
-sudo dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
-sudo dnf clean all
-sudo dnf module install -y nvidia-driver:latest-dkms
+echo "Setting up Docker repository..."
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-echo "Installing CUDA toolkit..."
-sudo dnf install -y cuda-toolkit
+echo "Updating package list with Docker repository..."
+sudo apt-get update
 
-echo "Installing Docker..."
-sudo dnf install -y docker
+echo "Installing Docker Engine..."
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-echo "Installing NVIDIA Container Toolkit..."
-sudo dnf config-manager --add-repo https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo
-sudo dnf install -y nvidia-container-toolkit
+echo "Adding current user to docker group..."
+sudo usermod -aG docker $USER
 
-echo "Configuring Docker daemon..."
-sudo nvidia-ctk runtime configure --runtime=docker
+echo "Installing Docker Compose..."
+sudo apt-get install -y docker-compose-plugin
+
+echo "Verifying Docker installation..."
+docker --version
+
+echo "Verifying Docker Compose installation..."
+docker compose version
 
 echo "Starting Docker service..."
 sudo systemctl start docker
 sudo systemctl enable docker
 
-echo "Restarting Docker daemon..."
+# Add NVIDIA package repositories
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
+   && curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add - \
+   && curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+
+# Install nvidia-docker2
+sudo apt-get update
+sudo apt-get install -y nvidia-docker2
+
+#
+sudo apt-get update
+sudo apt-get install -y nvidia-cuda-toolkit
+
+#
+nvidia-smi 
+
+# Install NVIDIA Container Toolkit
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+
+# Configure Docker daemon
+sudo nvidia-ctk runtime configure --runtime=docker
+
+# Restart Docker daemon
 sudo systemctl restart docker
-
-echo "Verifying NVIDIA driver installation..."
-nvidia-smi
-
-echo "Installation complete! System will reboot in 10 seconds..."
-sleep 10
-sudo reboot
