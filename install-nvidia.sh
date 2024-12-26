@@ -3,17 +3,17 @@
 # Exit on error
 set -e
 
-# # Install required packages
-# sudo dnf update -y
-# sudo dnf install -y curl docker
+# Install required packages
+sudo dnf update -y
+sudo dnf install -y curl docker
 
-# # Install Docker Compose
-# sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-# sudo chmod +x /usr/local/bin/docker-compose
+# Install Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
 
-# # Start and enable Docker service
-# sudo systemctl start docker
-# sudo systemctl enable docker
+# Start and enable Docker service
+sudo systemctl start docker
+sudo systemctl enable docker
 
 echo "Installing required packages..."
 sudo dnf update -y
