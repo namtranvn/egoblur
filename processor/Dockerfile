@@ -13,8 +13,10 @@ RUN apt-get update && \
     libsm6 \
     libxext6 \
     libxrender-dev \
-    libgl1-mesa-glx && \
-    apt-get clean && \
+    libgl1-mesa-glx \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy the application

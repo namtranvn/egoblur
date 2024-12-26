@@ -423,6 +423,7 @@ def visualize_video(
     """
     visualized_images = []
     video_reader_clip = VideoFileClip(input_video_path)
+    vid_fps = video_reader_clip.fps
     for frame in video_reader_clip.iter_frames():
         if len(frame.shape) == 2:
             frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
@@ -462,8 +463,8 @@ def visualize_video(
     video_reader_clip.close()
 
     if visualized_images:
-        video_writer_clip = ImageSequenceClip(visualized_images, fps=output_video_fps)
-        video_writer_clip.write_videofile(output_video_path)
+        video_writer_clip = ImageSequenceClip(visualized_images, fps=vid_fps)
+        video_writer_clip.write_videofile(output_video_path, codec='libx264')
         video_writer_clip.close()
 
 

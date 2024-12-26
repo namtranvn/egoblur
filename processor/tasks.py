@@ -1,5 +1,6 @@
 # processor/tasks.py
 from celery import Celery
+from celery.signals import worker_process_init
 import torch
 import os
 from script import demo_ego_blur as ego_blur
@@ -19,29 +20,13 @@ app.conf.update(
     worker_max_tasks_per_child=1
 )
 
-# # Global variables for models
-# face_detector = None
-# lp_detector = None
+# Global variables for models
+face_detector = None
+lp_detector = None
 
 def load_models():
-    # global face_detector, lp_detector
-    
-    # if face_detector is None or lp_detector is None:
-    #     device = ego_blur.get_device()
-        
-    #     face_model_path = "./models/ego_blur_face/ego_blur_face.jit"
-    #     lp_model_path = "./models/ego_blur_lp/ego_blur_lp.jit"
-        
-    #     if os.path.exists(face_model_path):
-    #         face_detector = torch.jit.load(face_model_path, map_location="cpu").to(device)
-    #         face_detector.eval()
-            
-    #     if os.path.exists(lp_model_path):
-    #         lp_detector = torch.jit.load(lp_model_path, map_location="cpu").to(device)
-    #         lp_detector.eval()
-
     device = ego_blur.get_device()
-        
+    
     face_model_path = "./models/ego_blur_face/ego_blur_face.jit"
     lp_model_path = "./models/ego_blur_lp/ego_blur_lp.jit"
     
@@ -55,12 +40,18 @@ def load_models():
 
     return face_detector, lp_detector
 
+@worker_process_init.connect
+def init_worker_process(**kwargs):
+    """
+    Load models once when the worker process initializes
+    """
+    print("Load Model")
+    global face_detector, lp_detector
+    face_detector, lp_detector = load_models()
+
 @app.task(name="process_video", bind=True)
 def process_video(self, params):
     try:
-        # Load models if not loaded
-        face_detector, lp_detector = load_models()
-        
         # Validate input paths
         if not os.path.exists(params["input_video_path"]):
             raise FileNotFoundError(f"Input video not found: {params['input_video_path']}")
@@ -74,7 +65,8 @@ def process_video(self, params):
         self.update_state(state='PROCESSING',
                          meta={'status': 'Processing video'})
 
-        # Process video
+        print("Start Processing")
+        # Process video using globally loaded models
         ego_blur.visualize_video(
             input_video_path=params["input_video_path"],
             face_detector=face_detector,
