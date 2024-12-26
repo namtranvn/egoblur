@@ -1,16 +1,16 @@
 #!/bin/bash
-# First determine CentOS version
-CENTOS_VERSION=$(rpm -E %{rhel})
+# Determine CentOS version
+CENTOS_VERSION=$(cat /etc/centos-release | tr -dc '0-9.' | cut -d \. -f1)
 
 # Install EPEL based on CentOS version
-if [ "$CENTOS_VERSION" -eq "7" ]; then
+if [ "$CENTOS_VERSION" = "7" ]; then
     sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-elif [ "$CENTOS_VERSION" -eq "8" ]; then
+elif [ "$CENTOS_VERSION" = "8" ]; then
     sudo dnf install -y epel-release epel-next-release
-elif [ "$CENTOS_VERSION" -eq "9" ]; then
+elif [ "$CENTOS_VERSION" = "9" ]; then
     sudo dnf install -y epel-release epel-next-release
 else
-    echo "Unsupported CentOS version"
+    echo "Unsupported CentOS version: $CENTOS_VERSION"
     exit 1
 fi
 
