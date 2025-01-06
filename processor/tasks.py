@@ -127,7 +127,6 @@ def process_video(self, params):
         if os.path.exists(input_path):
             os.remove(input_path)
         
-        # print(f"input_data/{params['input_video_path']}")
         file_key = f"input_data/{params['input_video_path']}"
         print(file_key)
 
