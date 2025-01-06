@@ -59,7 +59,7 @@ def process_video(self, params):
             os.remove(input_path)
         else:
             s3 = boto3.client('s3')
-            s3.download_file('ego-blur', f'input_data/{params['input_video_path']}', f'./demo_assets/{params['input_video_path']}')
+            s3.download_file('ego-blur', f"input_data/{params['input_video_path']}", f"./demo_assets/{params['input_video_path']}")
 
         # Create output directory if it doesn't exist
         output_dir = "./output"

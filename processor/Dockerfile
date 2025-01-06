@@ -25,10 +25,10 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN useradd -u 1000 -m appuser
+# RUN useradd -u 1000 -m appuser
 
-RUN chown -R appuser:appuser /app
+# RUN chown -R appuser:appuser /app
 
 COPY . .
 
-USER appuser
+# USER appuser
