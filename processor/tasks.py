@@ -1,4 +1,3 @@
-# processor/tasks.py
 import os
 import boto3
 import torch
