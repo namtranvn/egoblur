@@ -50,7 +50,75 @@ def init_worker_process(**kwargs):
     global face_detector, lp_detector
     face_detector, lp_detector = load_models()
 
-@app.task(name="process_video", bind=True)
+
+def upload_to_s3(file_path, s3_key):
+    """
+    Upload a file to S3 bucket
+    """
+    try:
+        s3 = boto3.client('s3')
+        s3.upload_file(file_path, 'ego-blur', s3_key)
+        return True
+    except Exception as e:
+        print(f"Failed to upload to S3: {str(e)}")
+        return False
+
+def cleanup_files(input_path, output_path):
+    """
+    Clean up temporary files after processing
+    """
+    try:
+        if os.path.exists(input_path):
+            os.remove(input_path)
+        if os.path.exists(output_path):
+            os.remove(output_path)
+    except Exception as e:
+        print(f"Failed to cleanup files: {str(e)}")
+
+def on_success(self, retval, task_id, args, kwargs):
+    """
+    Success callback handler
+    """
+    try:
+        output_path = retval.get('output_path')
+        if output_path and os.path.exists(output_path):
+            # Upload to S3
+            filename = os.path.basename(output_path)
+            s3_key = f"output_data/{filename}"
+            
+            if upload_to_s3(output_path, s3_key):
+                print(f"Successfully uploaded {filename} to S3")
+                # Update return value with S3 path
+                retval['s3_path'] = s3_key
+            else:
+                print(f"Failed to upload {filename} to S3")
+            
+            # Cleanup local files
+            input_path = f"./demo_assets/{args[0]['input_video_path']}"
+            cleanup_files(input_path, output_path)
+            
+        return retval
+    except Exception as e:
+        print(f"Error in success callback: {str(e)}")
+        return retval
+
+def on_failure(self, exc, task_id, args, kwargs, einfo):
+    """
+    Failure callback handler
+    """
+    try:
+        # Cleanup any temporary files
+        input_path = f"./demo_assets/{args[0]['input_video_path']}"
+        output_path = f"./output/output_{args[0]['input_video_path']}"
+        cleanup_files(input_path, output_path)
+        
+        # Log the error
+        print(f"Task {task_id} failed: {str(exc)}")
+        
+    except Exception as e:
+        print(f"Error in failure callback: {str(e)}")
+
+@app.task(name="process_video", bind=True, on_success=on_success, on_failure=on_failure)
 def process_video(self, params):
     try:
         # Validate input paths
