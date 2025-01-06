@@ -55,11 +55,14 @@ def process_video(self, params):
     try:
         # Validate input paths
         input_path = f"./demo_assets/{params['input_video_path']}"
+        print(input_path)
         if os.path.exists(input_path):
             os.remove(input_path)
-        else:
-            s3 = boto3.client('s3')
-            s3.download_file('ego-blur', f"input_data/{params['input_video_path']}", f"./demo_assets/{params['input_video_path']}")
+        
+        print(f"input_data/{params['input_video_path']}")
+
+        s3 = boto3.client('s3')
+        s3.download_file('ego-blur', f"input_data/{params['input_video_path']}", input_path)
 
         # Create output directory if it doesn't exist
         output_dir = "./output"
