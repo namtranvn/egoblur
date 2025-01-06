@@ -1,8 +1,9 @@
 # processor/tasks.py
+import os
+import boto3
+import torch
 from celery import Celery
 from celery.signals import worker_process_init
-import torch
-import os
 from script import demo_ego_blur as ego_blur
 
 # Initialize Celery
@@ -38,6 +39,7 @@ def load_models():
         lp_detector = torch.jit.load(lp_model_path, map_location="cpu").to(device)
         lp_detector.eval()
 
+    print("Models loaded")
     return face_detector, lp_detector
 
 @worker_process_init.connect
@@ -45,7 +47,6 @@ def init_worker_process(**kwargs):
     """
     Load models once when the worker process initializes
     """
-    print("Load Model")
     global face_detector, lp_detector
     face_detector, lp_detector = load_models()
 
@@ -53,13 +54,19 @@ def init_worker_process(**kwargs):
 def process_video(self, params):
     try:
         # Validate input paths
-        if not os.path.exists(params["input_video_path"]):
-            raise FileNotFoundError(f"Input video not found: {params['input_video_path']}")
+        input_path = f"./demo_assets/{params['input_video_path']}"
+        if os.path.exists(input_path):
+            os.remove(input_path)
+        else:
+            s3 = boto3.client('s3')
+            s3.download_file('ego-blur', f'input_data/{params['input_video_path']}', f'./demo_assets/{params['input_video_path']}')
 
         # Create output directory if it doesn't exist
-        output_dir = os.path.dirname(params["output_video_path"])
+        output_dir = "./output"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
+
+        output_path = f"{output_dir}/output_{params['input_video_path']}"
 
         # Update task state
         self.update_state(state='PROCESSING',
@@ -68,20 +75,20 @@ def process_video(self, params):
         print("Start Processing")
         # Process video using globally loaded models
         ego_blur.visualize_video(
-            input_video_path=params["input_video_path"],
+            input_video_path=input_path,
             face_detector=face_detector,
             lp_detector=lp_detector,
             face_model_score_threshold=params["face_model_score_threshold"],
             lp_model_score_threshold=params["lp_model_score_threshold"],
             nms_iou_threshold=params["nms_iou_threshold"],
-            output_video_path=params["output_video_path"],
+            output_video_path=output_path,
             scale_factor_detections=params["scale_factor_detections"],
             output_video_fps=params["output_video_fps"]
         )
 
         return {
             "status": "success",
-            "output_path": params["output_video_path"],
+            "output_path": output_path,
             "message": "Video processed successfully"
         }
 

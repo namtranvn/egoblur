@@ -43,13 +43,6 @@ async def blur_video(request: BlurRequest) -> TaskResponse:
     """
     Submit a video for processing with EgoBlur
     """
-    # Validate input paths
-    # if not os.path.exists(request.input_video_path):
-    #     raise HTTPException(
-    #         status_code=404, 
-    #         detail=f"Input video not found: {request.input_video_path}"
-    #     )
-    
     try:
         # Submit task to Celery
         task = celery_app.send_task(

@@ -3,9 +3,6 @@ from typing import Optional, Dict
 
 class BlurRequest(BaseModel):
     input_video_path: str
-    output_video_path: str
-    face_model_path: str = "./models/ego_blur_face/ego_blur_face.jit"
-    lp_model_path: str = "./models/ego_blur_lp/ego_blur_lp.jit"
     face_model_score_threshold: float = 0.9
     lp_model_score_threshold: float = 0.9
     nms_iou_threshold: float = 0.3
