@@ -1,4 +1,4 @@
-# version: '3.8'
+version: '3.8'
 
 services:
   api:
@@ -9,28 +9,16 @@ services:
     ports:
       - "8000:8000"
     command: ./start.sh
+    volumes:
+      - ${HOME}/ego_blur_assets:/ego_blur_assets
+      - ./logs/api:/app/logs
+      - ./demo_assets:/app/demo_assets
     environment:
       - WORKERS_PER_CORE=1
       - WEB_CONCURRENCY=2
-      - MAX_WORKERS=4
-      - HOST=0.0.0.0
-      - PORT=8000
       - LOG_LEVEL=info
       - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-    volumes:
-      - ./api:/app
-      - ./logs/api:/app/logs
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-    depends_on:
-      - processor
-      - rabbitmq
-      - redis
     networks:
       - egoblur_network
 
@@ -39,26 +27,21 @@ services:
     build: 
       context: ./processor
       dockerfile: Dockerfile
-    command: ./start.sh
-    # command: celery -A tasks worker -P eventlet --loglevel=info -c 3
+    # NEW: Added time limits to Celery worker
+    command: celery -A tasks worker -P eventlet --loglevel=info --time-limit=3600 --soft-time-limit=3600
     volumes:
-      - ./processor:/app
+      - ${HOME}/ego_blur_assets:/ego_blur_assets
       - ./logs/celery:/app/logs
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+      - ./demo_assets:/app/demo_assets
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all
       - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-    restart: unless-stopped
-    depends_on:
-      - rabbitmq
-      - redis
+      # NEW: Added Celery task configurations
+      - CELERY_TASK_TIME_LIMIT=3600
+      - CELERY_TASK_SOFT_TIME_LIMIT=3600
+      - CELERY_BROKER_HEARTBEAT=0
+      - CELERY_BROKER_CONNECTION_TIMEOUT=30
+      - CELERY_VISIBILITY_TIMEOUT=43200
     networks:
       - egoblur_network
 
@@ -71,12 +54,16 @@ services:
     environment:
       - RABBITMQ_DEFAULT_USER=guest
       - RABBITMQ_DEFAULT_PASS=guest
+      # NEW: Added RabbitMQ consumer timeout
+      - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbit consumer_timeout 3600000
+    # NEW: Added persistent volume
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      test: rabbitmq-diagnostics check_port_connectivity
       interval: 30s
       timeout: 10s
-      retries: 3
-    restart: unless-stopped
+      retries: 5
     networks:
       - egoblur_network
 
@@ -85,15 +72,22 @@ services:
     image: redis:6
     ports:
       - "6379:6379"
+    # NEW: Added persistent volume
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
-    restart: unless-stopped
     networks:
       - egoblur_network
 
 networks:
   egoblur_network:
     name: egoblur_network
+
+# NEW: Added persistent volumes
+volumes:
+  rabbitmq_data:
+  redis_data:
